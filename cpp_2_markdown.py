@@ -22,7 +22,7 @@ import re
 
 START_REGEX = re.compile(r'/\*')
 END_REGEX = re.compile(r'\*/')
-MKD_ESCAPE = re.compile('([#_<>])')
+MKD_ESCAPE = re.compile(r'([#_<>]|(?<!\\)\\[nt])')
 TXT_EXTENSIONS = ('.md', '.txt', '.mkd')
 CODE_EXTENSIONS = ('.cpp', '.cc', '.h', '.hpp')
 
@@ -31,12 +31,23 @@ def debug(*args, end=None):
     pass
 
 
-def mkd_esc(line):
+def prepare_mkd_line(line, in_comment_env=None):
     indent = re.search(r'\S|$', line).start()
-    if indent < 4:
-        return MKD_ESCAPE.sub(r'\\\1', line)
+    if indent < 5:
+        line = MKD_ESCAPE.sub(r'\\\1', line)
+        if not line.lstrip():
+            in_comment_env = None
+        elif line.lstrip()[0] in ('*', '-'):
+            in_comment_env = 'item'
+        elif indent > 3 and in_comment_env != 'item':
+            line = '*' + line
+            in_comment_env = 'item'
+    elif in_comment_env != 'codeblock':
+        line = '\n`' + line.strip().replace('`', '\\`') + '`\n'
     else:
-        return line
+        in_comment_env = 'codeblock'
+
+    return line, in_comment_env
 
 
 def mkd_increment(lines, level=1):
@@ -54,6 +65,7 @@ def code2mkd(lines):
 
     in_comment = 0  # nesting depth of being inside /* ... */ comments.
     star_indent = None  # save the index of the asterisque used to format comments.
+    in_comment_env = None  # Inside comments, there can be indented code blocks, and lists
 
     code = ""      # current code block content. Not written if empty
     
@@ -77,8 +89,10 @@ def code2mkd(lines):
                     end = match.start()
                     in_comment -= 1
                 debug('%s-%s' % (begin, end), end=' ')
-                mkd += mkd_esc(line[begin:end]) + '\n'  # necessary newline
+                next_line, in_comment_env = prepare_mkd_line(line[begin:end], in_comment_env)
+                mkd += next_line + '\n'  # necessary newline
             else:
+                in_comment_env = None
                 debug('code', end=' ')
                 match = START_REGEX.search(line)
                 if match:
