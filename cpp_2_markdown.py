@@ -2,7 +2,7 @@
 
 """
 Convert a C++ project directory into a markdown book.
-Comments are turned into regular text, and all the code into code blocks.
+
 Tested on linear-cpp tutorial.
 
 USAGE:
@@ -10,6 +10,21 @@ USAGE:
     ./cpp2mkd.py <project directory>
 
 Will create a new file <project directory>_ebook.md
+
+
+DETAILS:
+
+1. organize folders and files into chapters; if a README is found, it is placed first.
+2. put code and inline comments inside fenced code blocks.
+3. turn multiline comments into paragraphs;
+    * symbols like # _ < > and \\n or \\t are escaped
+    * preserve indentation for comments formatted with a leading asterisk:
+      - indent > 5 spaces after the asterisk is preserved, thus becoming
+        valid markdown indented code block, if preceeded by a blank line;
+      - if not preceeded by a blank line, it is turned into inline code;
+      - indent > 3 spaces is interpreted as list item; same if line startswith
+        an hyphen or asterisk (excluding the comment format asterisk)
+
 """
 
 
